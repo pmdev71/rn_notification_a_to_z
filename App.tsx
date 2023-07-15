@@ -1,8 +1,29 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {View, Button} from 'react-native';
 import notifee, {AndroidImportance} from '@notifee/react-native';
+import messaging from '@react-native-firebase/messaging';
 
 function App() {
+  useEffect(() => {
+    // Get the device token
+    messaging()
+      .getToken()
+      .then(token => {
+        // return saveTokenToDatabase(token);
+        console.log('Device token :', token);
+      });
+
+    // If using other push notification providers (ie Amazon SNS, etc)
+    // you may need to get the APNs token instead for iOS:
+    // if(Platform.OS == 'ios') { messaging().getAPNSToken().then(token => { return saveTokenToDatabase(token); }); }
+
+    // Listen to whether the token changes
+    return messaging().onTokenRefresh(token => {
+      // saveTokenToDatabase(token);
+      console.log('Device token :', token);
+    });
+  }, []);
+
   async function onDisplayNotification() {
     // Request permissions (required for iOS)
     await notifee.requestPermission();
@@ -18,23 +39,15 @@ function App() {
 
     // Display a notification
     await notifee.displayNotification({
-      title:
-        '<p style="color: #4caf50;"><b>Styled HTMLTitle</span></p></b></p> &#128576;',
-      subtitle: '&#129395;',
-      body: 'The <p style="text-decoration: line-through">body can</p> also be <p style="color: #ffffff; background-color: #9c27b0"><i>styled too</i></p> &#127881;!',
+      title: 'Notification Title',
+      body: 'Main body content of the notification',
       android: {
         channelId,
-        color: '#4caf50',
-        actions: [
-          {
-            title: '<b>Dance</b> &#128111;',
-            pressAction: {id: 'dance'},
-          },
-          {
-            title: '<p style="color: #f44336;"><b>Cry</b> &#128557;</p>',
-            pressAction: {id: 'cry'},
-          },
-        ],
+        smallIcon: 'ic_launcher', // optional, defaults to 'ic_launcher'.
+        // pressAction is needed if you want the notification to open the app when pressed
+        pressAction: {
+          id: 'default',
+        },
       },
     });
   }
