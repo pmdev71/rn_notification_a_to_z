@@ -28,14 +28,19 @@ function App() {
     });
   }, []);
 
+  // Handles FCM messages when the app is in a killed state.
   messaging().setBackgroundMessageHandler(async remoteMessage => {
     await onDisplayNotification(remoteMessage);
-    //   await notificationListeners();
   });
 
-  async function onDisplayNotification(data) {
+  // Handles FCM messages when the application is alive/in the foreground.
+  messaging().onMessage(async remoteMessage => {
+    await onDisplayNotification(remoteMessage);
+  });
+
+  async function onDisplayNotification(data: any) {
     console.log(
-      'Message handled in the background!',
+      '<== Message handled in the foreground/background ==>',
       JSON.stringify(data, null, 2),
     );
     // Request permissions (required for iOS)
@@ -45,9 +50,9 @@ function App() {
 
     // Create a channel (required for Android)
     const channelId = await notifee.createChannel({
-      id: data?.data?.channelId,
-      name: data?.data?.name,
-      sound: data?.data?.sound,
+      id: 'default' || data?.notification?.channelId,
+      name: 'Default Channel' || data?.notification?.name,
+      sound: 'default' || data?.notification?.sound,
       badge: true,
       vibration: true,
       vibrationPattern: [300, 500],
@@ -56,29 +61,14 @@ function App() {
       importance: AndroidImportance.HIGH,
     });
 
-    if (Platform.OS === 'ios') {
-      // Display a notification
-      await notifee.displayNotification({
-        title: data?.data?.title,
-        body: data?.data?.body,
-        ios: {
-          // badgeCount: 1,
-          sound: data?.data?.soundIOS,
-          foregroundPresentationOptions: {
-            badge: true,
-            sound: true,
-          },
-        },
-      });
-    }
     if (Platform.OS === 'android') {
       // Display a notification
       await notifee.displayNotification({
-        title: data?.data?.title,
-        body: data?.data?.body,
+        title: data?.notification?.title,
+        body: data?.notification?.body,
         android: {
           channelId,
-          smallIcon: 'ic_notification', // optional, defaults to 'ic_launcher'.
+          smallIcon: 'ic_launcher', // optional, defaults to 'ic_launcher'.
           vibrationPattern: [300, 500],
           // pressAction is needed if you want the notification to open the app when pressed
           pressAction: {
@@ -87,7 +77,40 @@ function App() {
         },
       });
     }
+
+    // if (Platform.OS === 'ios') {
+    //   // Display a notification
+    //   await notifee.displayNotification({
+    //     title: data?.data?.title,
+    //     body: data?.data?.body,
+    //     ios: {
+    //       // badgeCount: 1,
+    //       sound: data?.data?.soundIOS,
+    //       foregroundPresentationOptions: {
+    //         badge: true,
+    //         sound: true,
+    //       },
+    //     },
+    //   });
+    // }
   }
+
+  notifee.onBackgroundEvent(async ({type, detail}) => {
+    const {notification, pressAction} = detail;
+    // Check if the user pressed the "Mark as read" action
+    if (Platform.OS === 'ios') {
+      if (
+        type === EventType.ACTION_PRESS &&
+        pressAction.id === 'mark-as-read'
+      ) {
+        // Decrement the count by 1
+        await notifee.decrementBadgeCount();
+
+        // Remove the notification
+        await notifee.cancelNotification(notification.id);
+      }
+    }
+  });
 
   // async function onDisplayNotification() {
   //   // Request permissions (required for iOS)
